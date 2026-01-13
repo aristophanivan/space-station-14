@@ -336,7 +336,7 @@ public sealed partial class AntagSelectionSystem
     /// This technically is a gamerule-ent-less way to make an entity an antag.
     /// You should almost never be using this.
     /// </summary>
-    public void ForceMakeAntag<T>(ICommonSession? player, string defaultRule) where T : Component
+    public void ForceMakeAntag<T>(ICommonSession player, string defaultRule) where T : Component
     {
         var rule = ForceGetGameRuleEnt<T>(defaultRule);
 

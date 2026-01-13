@@ -35,6 +35,7 @@ using Robust.Shared.Player;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Random;
 using Robust.Shared.Utility;
+using SQLitePCL;
 
 namespace Content.Server.Antag;
 
@@ -305,7 +306,7 @@ public sealed partial class AntagSelectionSystem : GameRuleSystem<AntagSelection
             }
 
             if (session == null)
-                MakeAntag(ent, null, def); // This is for spawner antags
+                ConfigureSpawner(ent, def); // This is for spawner antags
             else
             {
                 if (!ent.Comp.PreSelectedSessions.TryGetValue(def, out var set))
@@ -343,17 +344,17 @@ public sealed partial class AntagSelectionSystem : GameRuleSystem<AntagSelection
     /// <summary>
     /// Tries to makes a given player into the specified antagonist.
     /// </summary>
-    public bool TryMakeAntag(Entity<AntagSelectionComponent> ent, ICommonSession? session, AntagSelectionDefinition def, bool ignoreSpawner = false, bool checkPref = true, bool onlyPreSelect = false)
+    public bool TryMakeAntag(Entity<AntagSelectionComponent> ent, ICommonSession session, AntagSelectionDefinition def, bool ignoreSpawner = false, bool checkPref = true, bool onlyPreSelect = false)
     {
         _adminLogger.Add(LogType.AntagSelection, $"Start trying to make {session} become the antagonist: {ToPrettyString(ent)}");
 
         if (checkPref && !ValidAntagPreference(session, def.PrefRoles))
             return false;
 
-        if (!IsSessionValid(ent, session, def) || !IsEntityValid(session?.AttachedEntity, def))
+        if (!IsSessionValid(ent, session, def) || !IsEntityValid(session.AttachedEntity, def))
             return false;
 
-        if (onlyPreSelect && session != null)
+        if (onlyPreSelect)
         {
             if (!ent.Comp.PreSelectedSessions.TryGetValue(def, out var set))
                 ent.Comp.PreSelectedSessions.Add(def, set = new HashSet<ICommonSession>());
@@ -372,27 +373,18 @@ public sealed partial class AntagSelectionSystem : GameRuleSystem<AntagSelection
     /// <summary>
     /// Makes a given player into the specified antagonist.
     /// </summary>
-    public void MakeAntag(Entity<AntagSelectionComponent> ent, ICommonSession? session, AntagSelectionDefinition def, bool ignoreSpawner = false)
+    public void MakeAntag(Entity<AntagSelectionComponent> ent, ICommonSession session, AntagSelectionDefinition def, bool ignoreSpawner = false)
     {
         EntityUid? antagEnt = null;
-        var isSpawner = false;
 
-        if (session != null)
-        {
-            if (!ent.Comp.PreSelectedSessions.TryGetValue(def, out var set))
-                ent.Comp.PreSelectedSessions.Add(def, set = new HashSet<ICommonSession>());
-            set.Add(session);
-            ent.Comp.AssignedSessions.Add(session);
+        if (!ent.Comp.PreSelectedSessions.TryGetValue(def, out var set))
+            ent.Comp.PreSelectedSessions.Add(def, set = new HashSet<ICommonSession>());
+        set.Add(session);
+        ent.Comp.AssignedSessions.Add(session);
 
-            // we shouldn't be blocking the entity if they're just a ghost or smth.
-            if (!HasComp<GhostComponent>(session.AttachedEntity))
-                antagEnt = session.AttachedEntity;
-        }
-        else if (!ignoreSpawner && def.SpawnerPrototype != null) // don't add spawners if we have a player, dummy.
-        {
-            antagEnt = Spawn(def.SpawnerPrototype);
-            isSpawner = true;
-        }
+        // we shouldn't be blocking the entity if they're just a ghost or smth.
+        if (!HasComp<GhostComponent>(session.AttachedEntity))
+            antagEnt = session.AttachedEntity;
 
         if (!antagEnt.HasValue)
         {
@@ -415,11 +407,6 @@ public sealed partial class AntagSelectionSystem : GameRuleSystem<AntagSelection
             return;
         }
 
-        // TODO: This is really messy because this part runs twice for midround events.
-        // Once when the ghostrole spawner is created and once when a player takes it.
-        // Therefore any component subscribing to this has to make sure both subscriptions return the same value
-        // or the ghost role raffle location preview will be wrong.
-
         var getPosEv = new AntagSelectLocationEvent(session, ent, player);
         RaiseLocalEvent(ent, ref getPosEv, true);
         if (getPosEv.Handled)
@@ -427,28 +414,6 @@ public sealed partial class AntagSelectionSystem : GameRuleSystem<AntagSelection
             var playerXform = Transform(player);
             var pos = RobustRandom.Pick(getPosEv.Coordinates);
             _transform.SetMapCoordinates((player, playerXform), pos);
-        }
-
-        // If we want to just do a ghost role spawner, set up data here and then return early.
-        // This could probably be an event in the future if we want to be more refined about it.
-        if (isSpawner)
-        {
-            if (!TryComp<GhostRoleAntagSpawnerComponent>(player, out var spawnerComp))
-            {
-                Log.Error($"Antag spawner {player} does not have a GhostRoleAntagSpawnerComponent.");
-                _adminLogger.Add(LogType.AntagSelection, $"Antag spawner {player} in gamerule {ToPrettyString(ent)} failed due to not having GhostRoleAntagSpawnerComponent.");
-                if (session != null)
-                {
-                    ent.Comp.AssignedSessions.Remove(session);
-                    ent.Comp.PreSelectedSessions[def].Remove(session);
-                }
-
-                return;
-            }
-
-            spawnerComp.Rule = ent;
-            spawnerComp.Definition = def;
-            return;
         }
 
         // The following is where we apply components, equipment, and other changes to our antagonist entity.
@@ -461,29 +426,48 @@ public sealed partial class AntagSelectionSystem : GameRuleSystem<AntagSelection
 
         _loadout.Equip(player, gear, def.RoleLoadout);
 
-        if (session != null)
+        var curMind = session.GetMind();
+        if (curMind == null ||
+            !TryComp<MindComponent>(curMind.Value, out var mindComp) ||
+            mindComp.OwnedEntity != antagEnt)
         {
-            var curMind = session.GetMind();
-
-            if (curMind == null ||
-                !TryComp<MindComponent>(curMind.Value, out var mindComp) ||
-                mindComp.OwnedEntity != antagEnt)
-            {
-                curMind = _mind.CreateMind(session.UserId, Name(antagEnt.Value));
-                _mind.SetUserId(curMind.Value, session.UserId);
-            }
-
-            _mind.TransferTo(curMind.Value, antagEnt, ghostCheckOverride: true);
-            _role.MindAddRoles(curMind.Value, def.MindRoles, null, true);
-            ent.Comp.AssignedMinds.Add((curMind.Value, Name(player)));
-            SendBriefing(session, def.Briefing);
-
-            Log.Debug($"Assigned {ToPrettyString(curMind)} as antagonist: {ToPrettyString(ent)}");
-            _adminLogger.Add(LogType.AntagSelection, $"Assigned {ToPrettyString(curMind)} as antagonist: {ToPrettyString(ent)}");
+            curMind = _mind.CreateMind(session.UserId, Name(antagEnt.Value));
+            _mind.SetUserId(curMind.Value, session.UserId);
         }
+
+        _mind.TransferTo(curMind.Value, antagEnt, ghostCheckOverride: true);
+        _role.MindAddRoles(curMind.Value, def.MindRoles, null, true);
+        ent.Comp.AssignedMinds.Add((curMind.Value, Name(player)));
+        SendBriefing(session, def.Briefing);
+
+        Log.Debug($"Assigned {ToPrettyString(curMind)} as antagonist: {ToPrettyString(ent)}");
+        _adminLogger.Add(LogType.AntagSelection, $"Assigned {ToPrettyString(curMind)} as antagonist: {ToPrettyString(ent)}");
 
         var afterEv = new AfterAntagEntitySelectedEvent(session, player, ent, def);
         RaiseLocalEvent(ent, ref afterEv, true);
+    }
+
+    private void ConfigureSpawner(Entity<AntagSelectionComponent> ent, AntagSelectionDefinition def)
+    {
+        var spawnerEnt = Spawn(def.SpawnerPrototype);
+
+        var getPosEv = new AntagSelectLocationEvent(null, ent, spawnerEnt);
+        RaiseLocalEvent(ent, ref getPosEv, true);
+        if (getPosEv.Handled)
+        {
+            var playerXform = Transform(spawnerEnt);
+            var pos = RobustRandom.Pick(getPosEv.Coordinates);
+            _transform.SetMapCoordinates((spawnerEnt, playerXform), pos);
+        }
+
+        if (!TryComp<GhostRoleAntagSpawnerComponent>(spawnerEnt, out var spawnerComp))
+        {
+            Log.Error($"Antag spawner {spawnerEnt} does not have a GhostRoleAntagSpawnerComponent.");
+            _adminLogger.Add(LogType.AntagSelection, $"Antag spawner {spawnerEnt} in gamerule {ToPrettyString(ent)} failed due to not having GhostRoleAntagSpawnerComponent.");
+            return;
+        }
+        spawnerComp.Rule = ent;
+        spawnerComp.Definition = def;
     }
 
     /// <summary>
@@ -520,9 +504,6 @@ public sealed partial class AntagSelectionSystem : GameRuleSystem<AntagSelection
     /// </summary>
     public bool IsSessionValid(Entity<AntagSelectionComponent> ent, ICommonSession? session, AntagSelectionDefinition def, EntityUid? mind = null)
     {
-        // TODO ROLE TIMERS
-        // Check if antag role requirements are met
-
         if (session == null)
             return true;
 
@@ -534,7 +515,11 @@ public sealed partial class AntagSelectionSystem : GameRuleSystem<AntagSelection
 
         mind ??= session.GetMind();
 
-        //todo: we need some way to check that we're not getting the same role twice. (double picking thieves or zombies through midrounds)
+        if (mind != null && _role.MindGetAllRoleInfo(mind.Value).Any(r => def.MindRoles?.Contains(r.Prototype) == true)) // we can't get the same role twice
+            return false;
+
+        if (!_playTime.IsAllowed(session, def.PrefRoles)) // check playtime restrictions
+            return false;
 
         switch (def.MultiAntagSetting)
         {
@@ -626,8 +611,6 @@ public record struct AntagSelectEntityEvent(ICommonSession? Session, Entity<Anta
 [ByRefEvent]
 public record struct AntagSelectLocationEvent(ICommonSession? Session, Entity<AntagSelectionComponent> GameRule, EntityUid Entity)
 {
-    public readonly ICommonSession? Session = Session;
-
     public bool Handled => Coordinates.Any();
 
     // the entity of the antagonist
