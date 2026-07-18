@@ -1,3 +1,8 @@
+- files: ["photo_shutter.ogg"]
+  license: "CC0-1.0"
+  copyright: "Procedurally synthesized for Space Station 14 by OpenAI Codex"
+  source: "https://github.com/space-wizards/space-station-14"
+
 - files: ["beep.ogg"]
   license: "CC0-1.0"
   copyright: "Created by Pól, converted to OGG and Mono by EmoGarbage"

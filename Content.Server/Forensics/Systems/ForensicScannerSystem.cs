@@ -8,6 +8,7 @@ using Content.Shared.Forensics;
 using Content.Shared.Hands.EntitySystems;
 using Content.Shared.Interaction;
 using Content.Shared.Paper;
+using Content.Shared.Photography;
 using Content.Shared.Verbs;
 using Content.Shared.Tag;
 using Robust.Shared.Audio.Systems;
@@ -15,6 +16,7 @@ using Robust.Server.GameObjects;
 using Robust.Shared.Audio;
 using Robust.Shared.Timing;
 using Robust.Shared.Prototypes;
+using Content.Server.Photography;
 // todo: remove this stinky LINQy
 
 namespace Content.Server.Forensics
@@ -31,6 +33,7 @@ namespace Content.Server.Forensics
         [Dependency] private MetaDataSystem _metaData = default!;
         [Dependency] private ForensicsSystem _forensicsSystem = default!;
         [Dependency] private TagSystem _tag = default!;
+        [Dependency] private PhotoImageStorageSystem _photoStorage = default!;
 
         private static readonly ProtoId<TagPrototype> DNASolutionScannableTag = "DNASolutionScannable";
 
@@ -55,6 +58,7 @@ namespace Content.Server.Forensics
                 component.TouchDNAs,
                 component.SolutionDNAs,
                 component.Residues,
+                component.PhotoData,
                 component.LastScannedName,
                 component.PrintCooldown,
                 component.PrintReadyAt);
@@ -96,9 +100,22 @@ namespace Content.Server.Forensics
                 }
 
                 scanner.LastScannedName = MetaData(args.Args.Target.Value).EntityName;
+                scanner.PhotoData = GetPhotoData(args.Args.Target.Value);
             }
 
             OpenUserInterface(args.Args.User, (uid, scanner));
+        }
+
+        internal ForensicPhotoData? GetPhotoData(EntityUid target)
+        {
+            if (!TryComp(target, out PhotoComponent? photo) ||
+                photo.ImageId is not { } imageId ||
+                !_photoStorage.TryGetMetadata(imageId, out var metadata))
+            {
+                return null;
+            }
+
+            return new ForensicPhotoData(metadata.Size, metadata.Origin, photo.IsCopy);
         }
 
         /// <remarks>
@@ -240,6 +257,8 @@ namespace Content.Server.Forensics
                 text.AppendLine(residue);
             }
 
+            AppendPhotoData(text, component.PhotoData);
+
             _paperSystem.SetContent((printed, paperComp), text.ToString());
             _audioSystem.PlayPvs(component.SoundPrint, uid,
                 AudioParams.Default
@@ -257,9 +276,31 @@ namespace Content.Server.Forensics
             component.Fibers = new();
             component.TouchDNAs = new();
             component.SolutionDNAs = new();
+            component.Residues = new();
+            component.PhotoData = null;
             component.LastScannedName = string.Empty;
 
             UpdateUserInterface(uid, component);
+        }
+
+        private void AppendPhotoData(StringBuilder text, ForensicPhotoData? photoData)
+        {
+            if (photoData == null)
+                return;
+
+            text.AppendLine();
+            text.AppendLine(Loc.GetString("forensic-scanner-interface-photograph"));
+            text.AppendLine(Loc.GetString("forensic-scanner-interface-photo-origin",
+                ("origin", Loc.GetString(photoData.Origin == PhotoOrigin.Camera
+                    ? "forensic-scanner-photo-origin-camera"
+                    : "forensic-scanner-photo-origin-uploaded"))));
+            text.AppendLine(Loc.GetString("forensic-scanner-interface-photo-size",
+                ("width", photoData.Size.X),
+                ("height", photoData.Size.Y)));
+            text.AppendLine(Loc.GetString("forensic-scanner-interface-photo-print",
+                ("print", Loc.GetString(photoData.IsCopy
+                    ? "forensic-scanner-photo-copy"
+                    : "forensic-scanner-photo-original"))));
         }
     }
 }

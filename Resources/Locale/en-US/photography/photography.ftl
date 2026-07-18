@@ -1,7 +1,30 @@
-# TODO: Make this a fluent function in RT
-photograph-name-text = This is a photograph of { PROPER($entity) ->
-    *[false] { INDEFINITE($entity) } { $entity }
-     [true] { $entity }
-    }.
-photograph-name-text-empty = This is a photograph.
-photograph-name-text-photograph = This is a photograph of another photograph.
+photograph-ui-loading = Developing image…
+photograph-ui-image-unavailable = No image is stored in this photograph.
+photograph-ui-error-response = The photograph could not be loaded.
+photograph-ui-error-integrity = The photograph failed its integrity check.
+photograph-ui-error-decode = The photograph contains invalid image data.
+
+photo-camera-film-slot-name = Film cassette
+photo-camera-ui-brand = NANOTRASEN OPTICS · PX-512
+photo-camera-ui-heading = OPTICAL VIEWFINDER
+photo-camera-ui-optics = FRAME CONTROL
+photo-camera-ui-pan = PAN
+photo-camera-ui-pan-keys = W  A  S  D
+photo-camera-ui-pan-locked = Zoom in to move the frame.
+photo-camera-ui-pan-value = { $x }, { $y } m
+photo-camera-ui-zoom = LENS
+photo-camera-ui-reset = Reset frame
+photo-camera-ui-zoom-value = { $value }×
+photo-camera-ui-shutter = Take photograph
+photo-camera-ui-film = Film: { $shots } / { $capacity }
+photo-camera-ui-status-ready = Ready to expose.
+photo-camera-ui-status-no-film = Insert a film cassette.
+photo-camera-ui-status-empty = The film cassette is empty.
+photo-camera-ui-status-processing = Developing photograph…
+photo-camera-ui-result-success = Photograph developed.
+photo-camera-ui-result-not-held = Keep the camera in your active hand.
+photo-camera-ui-result-cooldown = The shutter is still resetting.
+photo-camera-ui-result-busy = The development queue is busy.
+photo-camera-ui-result-invalid-image = The exposure could not be developed.
+photo-camera-ui-result-storage-full = The station photo archive is full.
+photo-camera-ui-result-invalid-session = The viewfinder session expired. Reopen the camera.

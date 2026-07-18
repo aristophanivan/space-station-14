@@ -2,6 +2,7 @@ using System.Threading;
 using Robust.Shared.Audio;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom.Prototype;
+using Content.Shared.Forensics;
 
 namespace Content.Server.Forensics
 {
@@ -39,6 +40,12 @@ namespace Content.Server.Forensics
         /// </summary>
         [ViewVariables(VVAccess.ReadOnly), DataField("residues")]
         public List<string> Residues = new();
+
+        /// <summary>
+        /// Immutable image provenance found when the last scanned entity was a photograph.
+        /// </summary>
+        [ViewVariables(VVAccess.ReadOnly)]
+        public ForensicPhotoData? PhotoData;
 
         /// <summary>
         /// What is the name of the entity that was scanned last?

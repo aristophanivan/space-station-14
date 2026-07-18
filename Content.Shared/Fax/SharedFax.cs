@@ -1,4 +1,5 @@
 using Robust.Shared.Serialization;
+using Content.Shared.Photography;
 
 namespace Content.Shared.Fax;
 
@@ -53,6 +54,48 @@ public static class FaxFileMessageValidation
 {
     public const int MaxLabelSize = 50; // parity with Content.Server.Labels.Components.HandLabelerComponent.MaxLabelChars
     public const int MaxContentSize = 10000;
+}
+
+[Serializable, NetSerializable]
+public sealed class FaxImageFileMessage : BoundUserInterfaceMessage
+{
+    public string Name;
+    public byte[] EncodedImage;
+
+    public FaxImageFileMessage(string name, byte[] encodedImage)
+    {
+        Name = name;
+        EncodedImage = encodedImage;
+    }
+}
+
+[Serializable, NetSerializable]
+public enum FaxImagePrintResult : byte
+{
+    Queued,
+    InvalidImage,
+    TooLarge,
+    Busy,
+    StorageFull,
+    UploadsDisabled,
+    UploadLimit,
+}
+
+[Serializable, NetSerializable]
+public sealed class FaxImagePrintResultMessage : BoundUserInterfaceMessage
+{
+    public readonly FaxImagePrintResult Result;
+
+    public FaxImagePrintResultMessage(FaxImagePrintResult result)
+    {
+        Result = result;
+    }
+}
+
+public static class FaxImageFileMessageValidation
+{
+    public const int MaxNameLength = 64;
+    public const int MaxEncodedBytes = PhotographyConstants.MaxEncodedBytes;
 }
 
 [Serializable, NetSerializable]

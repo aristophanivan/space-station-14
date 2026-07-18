@@ -1,4 +1,23 @@
 - type: latheRecipe
+  parent: BaseToolRecipe
+  id: PhotoCamera
+  result: PhotoCamera
+  materials:
+    Steel: 200
+    Plastic: 300
+    Glass: 200
+
+- type: latheRecipe
+  id: PhotoFilm
+  result: PhotoFilm
+  categories:
+  - Tools
+  completetime: 1
+  materials:
+    Plastic: 100
+    Silver: 25
+
+- type: latheRecipe
   parent: BasePartRecipe
   id: TimerTrigger
   result: TimerTrigger

@@ -103,10 +103,19 @@
 
                     <Button Name="FileButton"
                         Text="{Loc 'fax-machine-ui-file-button'}"
+                        StyleClasses="OpenBoth"
+                        HorizontalExpand="True"/>
+
+                    <Button Name="ImageButton"
+                        Text="{Loc 'fax-machine-ui-image-button'}"
                         StyleClasses="OpenLeft"
                         HorizontalExpand="True"/>
 
                 </BoxContainer>
+
+                <Label Name="ImageStatusLabel"
+                    HorizontalAlignment="Center"
+                    Visible="False" />
 
                 <!-- It would be cool to add a display of the inserted file here. -->
             </BoxContainer>

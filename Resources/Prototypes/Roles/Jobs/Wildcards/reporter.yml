@@ -16,9 +16,10 @@
     shoes: ClothingShoesColorWhite
     id: ReporterPDA
     ears: ClothingHeadsetService
-  #storage:
-    #back:
-    #- Stuff
+  storage:
+    back:
+    - PhotoCamera
+    - PhotoFilm
 
 - type: chameleonOutfit
   id: ReporterChameleonOutfit

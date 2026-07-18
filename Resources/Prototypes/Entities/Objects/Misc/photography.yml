@@ -1,0 +1,25 @@
+- type: entity
+  abstract: true
+  parent: BaseItem
+  id: BasePhotograph
+  name: photograph
+  description: A photograph in a simple white frame.
+  components:
+  - type: Sprite
+    sprite: Objects/Misc/photograph.rsi
+    state: black
+  - type: Item
+    size: Tiny
+  - type: Photo
+  - type: FaxableObject
+  - type: ActivatableUI
+    key: enum.PhotoUiKey.Key
+    requiresComplex: false
+  - type: UserInterface
+    interfaces:
+      enum.PhotoUiKey.Key:
+        type: PhotoBoundUserInterface
+
+- type: entity
+  parent: BasePhotograph
+  id: Photograph

@@ -1,7 +1,23 @@
 using Robust.Shared.Serialization;
+using Content.Shared.Photography;
 
 namespace Content.Shared.Forensics
 {
+    [Serializable, NetSerializable]
+    public sealed class ForensicPhotoData
+    {
+        public readonly Vector2i Size;
+        public readonly PhotoOrigin Origin;
+        public readonly bool IsCopy;
+
+        public ForensicPhotoData(Vector2i size, PhotoOrigin origin, bool isCopy)
+        {
+            Size = size;
+            Origin = origin;
+            IsCopy = isCopy;
+        }
+    }
+
     [Serializable, NetSerializable]
     public sealed class ForensicScannerBoundUserInterfaceState : BoundUserInterfaceState
     {
@@ -10,6 +26,7 @@ namespace Content.Shared.Forensics
         public readonly List<string> TouchDNAs = new();
         public readonly List<string> SolutionDNAs = new();
         public readonly List<string> Residues = new();
+        public readonly ForensicPhotoData? PhotoData;
         public readonly string LastScannedName = string.Empty;
         public readonly TimeSpan PrintCooldown = TimeSpan.Zero;
         public readonly TimeSpan PrintReadyAt = TimeSpan.Zero;
@@ -20,6 +37,7 @@ namespace Content.Shared.Forensics
             List<string> touchDnas,
             List<string> solutionDnas,
             List<string> residues,
+            ForensicPhotoData? photoData,
             string lastScannedName,
             TimeSpan printCooldown,
             TimeSpan printReadyAt)
@@ -29,6 +47,7 @@ namespace Content.Shared.Forensics
             TouchDNAs = touchDnas;
             SolutionDNAs = solutionDnas;
             Residues = residues;
+            PhotoData = photoData;
             LastScannedName = lastScannedName;
             PrintCooldown = printCooldown;
             PrintReadyAt = printReadyAt;

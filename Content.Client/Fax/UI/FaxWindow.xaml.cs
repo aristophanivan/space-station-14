@@ -11,6 +11,7 @@ namespace Content.Client.Fax.UI;
 public sealed partial class FaxWindow : DefaultWindow
 {
     public event Action? FileButtonPressed;
+    public event Action? ImageButtonPressed;
     public event Action? PaperButtonPressed;
     public event Action? CopyButtonPressed;
     public event Action? SendButtonPressed;
@@ -26,12 +27,20 @@ public sealed partial class FaxWindow : DefaultWindow
         PaperButtonPressed += OnPaperButtonPressed;
 
         FileButton.OnPressed += _ => FileButtonPressed?.Invoke();
+        ImageButton.OnPressed += _ => ImageButtonPressed?.Invoke();
         PaperButton.OnPressed += _ => PaperButtonPressed?.Invoke();
         CopyButton.OnPressed += _ => CopyButtonPressed?.Invoke();
         SendButton.OnPressed += _ => SendButtonPressed?.Invoke();
         RefreshButton.OnPressed += _ => RefreshButtonPressed?.Invoke();
         PeerSelector.OnItemSelected += args =>
             PeerSelected?.Invoke((string)args.Button.GetItemMetadata(args.Id)!);
+    }
+
+    public void ShowImageStatus(string text, Color color)
+    {
+        ImageStatusLabel.Text = text;
+        ImageStatusLabel.FontColorOverride = color;
+        ImageStatusLabel.Visible = true;
     }
 
     public void UpdateState(FaxUiState state)

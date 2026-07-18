@@ -4,6 +4,7 @@ using Robust.Client.UserInterface.CustomControls;
 using Robust.Client.UserInterface.XAML;
 using Robust.Shared.Timing;
 using Content.Shared.Forensics;
+using Content.Shared.Photography;
 
 namespace Content.Client.Forensics
 {
@@ -69,6 +70,23 @@ namespace Content.Client.Forensics
             foreach (var residue in msg.Residues)
             {
                 text.AppendLine(residue);
+            }
+
+            if (msg.PhotoData is { } photoData)
+            {
+                text.AppendLine();
+                text.AppendLine(Loc.GetString("forensic-scanner-interface-photograph"));
+                text.AppendLine(Loc.GetString("forensic-scanner-interface-photo-origin",
+                    ("origin", Loc.GetString(photoData.Origin == PhotoOrigin.Camera
+                        ? "forensic-scanner-photo-origin-camera"
+                        : "forensic-scanner-photo-origin-uploaded"))));
+                text.AppendLine(Loc.GetString("forensic-scanner-interface-photo-size",
+                    ("width", photoData.Size.X),
+                    ("height", photoData.Size.Y)));
+                text.AppendLine(Loc.GetString("forensic-scanner-interface-photo-print",
+                    ("print", Loc.GetString(photoData.IsCopy
+                        ? "forensic-scanner-photo-copy"
+                        : "forensic-scanner-photo-original"))));
             }
             Diagnostics.Text = text.ToString();
         }

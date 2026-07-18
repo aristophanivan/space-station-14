@@ -24,6 +24,8 @@
   - DeviceQuantumSpinInverter
   - DeviceDesynchronizer
   - ClothingBackpackHarmpack
+  - PhotoCamera
+  - PhotoFilm
 
 - type: latheRecipePack
   id: ScienceClothing

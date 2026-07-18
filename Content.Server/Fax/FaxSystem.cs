@@ -1,12 +1,15 @@
+using System.Linq;
 using Content.Server.Administration;
 using Content.Server.Administration.Managers;
 using Content.Server.Chat.Managers;
 using Content.Server.DeviceNetwork.Systems;
 using Content.Server.Popups;
+using Content.Server.Photography;
 using Content.Server.Power.Components;
 using Content.Server.Tools;
 using Content.Shared.Administration.Logs;
 using Content.Shared.Containers.ItemSlots;
+using Content.Shared.CCVar;
 using Content.Shared.Database;
 using Content.Shared.DeviceNetwork;
 using Content.Shared.DeviceNetwork.Components;
@@ -22,6 +25,7 @@ using Content.Shared.Labels.EntitySystems;
 using Content.Shared.Mobs.Components;
 using Content.Shared.NameModifier.Components;
 using Content.Shared.Paper;
+using Content.Shared.Photography;
 using Content.Shared.Power;
 using Content.Shared.Tools;
 using Content.Shared.UserInterface;
@@ -29,6 +33,8 @@ using Robust.Server.GameObjects;
 using Robust.Shared.Audio;
 using Robust.Shared.Audio.Systems;
 using Robust.Shared.Containers;
+using Robust.Shared.Configuration;
+using Robust.Shared.Network;
 using Robust.Shared.Player;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
@@ -54,10 +60,20 @@ public sealed partial class FaxSystem : EntitySystem
     [Dependency] private MetaDataSystem _metaData = default!;
     [Dependency] private FaxecuteSystem _faxecute = default!;
     [Dependency] private EmagSystem _emag = default!;
+    [Dependency] private PhotoImageProcessorSystem _photoProcessor = default!;
+    [Dependency] private PhotoImageStorageSystem _photoStorage = default!;
+    [Dependency] private IConfigurationManager _cfg = default!;
+    [Dependency] private IGameTiming _timing = default!;
 
     private static readonly ProtoId<ToolQualityPrototype> ScrewingQuality = "Screwing";
 
     private const string PaperSlotId = "Paper";
+
+    private readonly Dictionary<Guid, PendingPhotoUpload> _pendingPhotoUploads = new();
+    private readonly Dictionary<NetUserId, int> _photoUploadsByUser = new();
+    private readonly Dictionary<NetUserId, int> _pendingPhotoUploadsByUser = new();
+    private int _photoUploadsThisRound;
+    private int _pendingPhotoUploadsThisRound;
 
     public override void Initialize()
     {
@@ -80,10 +96,20 @@ public sealed partial class FaxSystem : EntitySystem
         // UI
         SubscribeLocalEvent<FaxMachineComponent, AfterActivatableUIOpenEvent>(OnToggleInterface);
         SubscribeLocalEvent<FaxMachineComponent, FaxFileMessage>(OnFileButtonPressed);
+        SubscribeLocalEvent<FaxMachineComponent, FaxImageFileMessage>(OnImageFileButtonPressed);
         SubscribeLocalEvent<FaxMachineComponent, FaxCopyMessage>(OnCopyButtonPressed);
         SubscribeLocalEvent<FaxMachineComponent, FaxSendMessage>(OnSendButtonPressed);
         SubscribeLocalEvent<FaxMachineComponent, FaxRefreshMessage>(OnRefreshButtonPressed);
         SubscribeLocalEvent<FaxMachineComponent, FaxDestinationMessage>(OnDestinationSelected);
+        SubscribeLocalEvent<RoundRestartCleanupEvent>(_ => ClearPhotoUploadState());
+        _photoProcessor.ImageProcessed += OnPhotoImageProcessed;
+    }
+
+    public override void Shutdown()
+    {
+        _photoProcessor.ImageProcessed -= OnPhotoImageProcessed;
+        ClearPhotoUploadState();
+        base.Shutdown();
     }
 
     public override void Update(float frameTime)
@@ -112,7 +138,7 @@ public sealed partial class FaxSystem : EntitySystem
             var isAnimationEnd = comp.PrintingTimeRemaining <= 0;
             if (isAnimationEnd)
             {
-                SpawnPaperFromQueue(uid, comp);
+                SpawnPrintoutFromQueue(uid, comp);
                 UpdateUserInterface(uid, comp);
             }
 
@@ -294,8 +320,27 @@ public sealed partial class FaxSystem : EntitySystem
 
                     break;
                 case FaxConstants.FaxPrintCommand:
-                    if (!args.Data.TryGetValue(FaxConstants.FaxPaperNameData, out string? name) ||
-                        !args.Data.TryGetValue(FaxConstants.FaxPaperContentData, out string? content))
+                    if (!args.Data.TryGetValue(FaxConstants.FaxPaperNameData, out string? name))
+                        return;
+
+                    args.Data.TryGetValue(FaxConstants.FaxPaperSenderFaxNameData, out string? senderFaxName);
+                    if (args.Data.TryGetValue(FaxConstants.FaxPhotoImageIdData, out string? photoImageIdText))
+                    {
+                        if (!Guid.TryParse(photoImageIdText, out var photoImageGuid))
+                            return;
+
+                        var photoImageId = new PhotoImageId(photoImageGuid);
+                        if (!_photoStorage.TryGetMetadata(photoImageId, out _))
+                            return;
+
+                        args.Data.TryGetValue(FaxConstants.FaxPhotoIsCopyData, out bool? photoIsCopy);
+                        Receive(uid,
+                            FaxPrintout.Photograph(photoImageId, name, photoIsCopy ?? true, senderFaxName),
+                            args.SenderAddress);
+                        break;
+                    }
+
+                    if (!args.Data.TryGetValue(FaxConstants.FaxPaperContentData, out string? content))
                         return;
 
                     args.Data.TryGetValue(FaxConstants.FaxPaperLabelData, out string? label);
@@ -303,7 +348,6 @@ public sealed partial class FaxSystem : EntitySystem
                     args.Data.TryGetValue(FaxConstants.FaxPaperStampedByData, out List<StampDisplayInfo>? stampedBy);
                     args.Data.TryGetValue(FaxConstants.FaxPaperPrototypeData, out string? prototypeId);
                     args.Data.TryGetValue(FaxConstants.FaxPaperLockedData, out bool? locked);
-                    args.Data.TryGetValue(FaxConstants.FaxPaperSenderFaxNameData, out string? senderFaxName);
 
                     var printout = new FaxPrintout(content, name, label, prototypeId, stampState, stampedBy, locked ?? false, senderFaxName);
                     Receive(uid, printout, args.SenderAddress);
@@ -323,6 +367,139 @@ public sealed partial class FaxSystem : EntitySystem
         args.Label = args.Label?[..Math.Min(args.Label.Length, FaxFileMessageValidation.MaxLabelSize)];
         args.Content = args.Content[..Math.Min(args.Content.Length, FaxFileMessageValidation.MaxContentSize)];
         PrintFile(uid, component, args);
+    }
+
+    private void OnImageFileButtonPressed(EntityUid uid, FaxMachineComponent component, FaxImageFileMessage args)
+    {
+        if (!_userInterface.IsUiOpen(uid, FaxUiKey.Key, args.Actor))
+            return;
+
+        if (!_cfg.GetCVar(CCVars.PhotographyUploadsEnabled))
+        {
+            SendImagePrintResult(uid, args.Actor, FaxImagePrintResult.UploadsDisabled);
+            return;
+        }
+
+        if (!TryComp(args.Actor, out ActorComponent? actor))
+            return;
+
+        var userId = actor.PlayerSession.UserId;
+        if (_photoUploadsThisRound + _pendingPhotoUploadsThisRound >=
+                _cfg.GetCVar(CCVars.PhotographyMaxUploadsPerRound) ||
+            _photoUploadsByUser.GetValueOrDefault(userId) +
+                _pendingPhotoUploadsByUser.GetValueOrDefault(userId) >=
+                _cfg.GetCVar(CCVars.PhotographyMaxUploadsPerUser))
+        {
+            SendImagePrintResult(uid, args.Actor, FaxImagePrintResult.UploadLimit);
+            return;
+        }
+
+        if (args.EncodedImage is not { Length: > 0 } encoded ||
+            encoded.Length > FaxImageFileMessageValidation.MaxEncodedBytes)
+        {
+            SendImagePrintResult(uid, args.Actor, FaxImagePrintResult.TooLarge);
+            return;
+        }
+
+        if (!_photoProcessor.TryQueue(encoded, out var requestId, out var queueError))
+        {
+            SendImagePrintResult(uid, args.Actor, queueError switch
+            {
+                PhotoImageQueueError.EncodedImageTooLarge => FaxImagePrintResult.TooLarge,
+                PhotoImageQueueError.QueueFull => FaxImagePrintResult.Busy,
+                _ => FaxImagePrintResult.InvalidImage,
+            });
+            return;
+        }
+
+        _pendingPhotoUploads.Add(requestId, new PendingPhotoUpload(
+            uid,
+            args.Actor,
+            userId,
+            SanitizePhotoName(args.Name)));
+        _pendingPhotoUploadsThisRound++;
+        _pendingPhotoUploadsByUser[userId] = _pendingPhotoUploadsByUser.GetValueOrDefault(userId) + 1;
+    }
+
+    private void OnPhotoImageProcessed(PhotoImageProcessingResult result)
+    {
+        if (!_pendingPhotoUploads.Remove(result.RequestId, out var pending))
+            return;
+
+        _pendingPhotoUploadsThisRound--;
+        var pendingForUser = _pendingPhotoUploadsByUser[pending.UserId] - 1;
+        if (pendingForUser == 0)
+            _pendingPhotoUploadsByUser.Remove(pending.UserId);
+        else
+            _pendingPhotoUploadsByUser[pending.UserId] = pendingForUser;
+
+        if (!TryComp(pending.Fax, out FaxMachineComponent? fax))
+            return;
+
+        if (result.Error != PhotoImageProcessingError.None || result.EncodedPng == null)
+        {
+            SendImagePrintResult(pending.Fax, pending.Actor, result.Error == PhotoImageProcessingError.EncodedImageTooLarge
+                ? FaxImagePrintResult.TooLarge
+                : FaxImagePrintResult.InvalidImage);
+            return;
+        }
+
+        if (!_photoStorage.TryAddCanonicalImage(
+                result.EncodedPng,
+                result.Size,
+                PhotoOrigin.Uploaded,
+                _timing.CurTime,
+                null,
+                pending.UserId,
+                out var imageId,
+                out _))
+        {
+            SendImagePrintResult(pending.Fax, pending.Actor, FaxImagePrintResult.StorageFull);
+            return;
+        }
+
+        fax.PrintingQueue.Enqueue(FaxPrintout.Photograph(imageId, pending.Name, false));
+        fax.SendTimeoutRemaining += fax.SendTimeout;
+        _photoUploadsThisRound++;
+        _photoUploadsByUser[pending.UserId] = _photoUploadsByUser.GetValueOrDefault(pending.UserId) + 1;
+        UpdateUserInterface(pending.Fax, fax);
+        SendImagePrintResult(pending.Fax, pending.Actor, FaxImagePrintResult.Queued);
+
+        _adminLogger.Add(LogType.Action,
+            LogImpact.Low,
+            $"{ToPrettyString(pending.Actor):actor} added photograph {imageId} to " +
+            $"\"{fax.FaxName}\" {ToPrettyString(pending.Fax):tool} print queue");
+    }
+
+    private void SendImagePrintResult(EntityUid fax, EntityUid actor, FaxImagePrintResult result)
+    {
+        if (Deleted(fax) || Deleted(actor))
+            return;
+
+        _userInterface.ServerSendUiMessage(
+            fax,
+            FaxUiKey.Key,
+            new FaxImagePrintResultMessage(result),
+            actor);
+    }
+
+    private static string SanitizePhotoName(string name)
+    {
+        var cleaned = new string(name
+            .Where(character => !char.IsControl(character))
+            .Take(FaxImageFileMessageValidation.MaxNameLength)
+            .ToArray())
+            .Trim();
+        return string.IsNullOrEmpty(cleaned) ? "photograph" : cleaned;
+    }
+
+    private void ClearPhotoUploadState()
+    {
+        _pendingPhotoUploads.Clear();
+        _photoUploadsByUser.Clear();
+        _pendingPhotoUploadsByUser.Clear();
+        _photoUploadsThisRound = 0;
+        _pendingPhotoUploadsThisRound = 0;
     }
 
     private void OnCopyButtonPressed(EntityUid uid, FaxMachineComponent component, FaxCopyMessage args)
@@ -465,6 +642,25 @@ public sealed partial class FaxSystem : EntitySystem
         if (sendEntity == null)
             return;
 
+        if (TryComp(sendEntity, out PhotoComponent? photo))
+        {
+            if (photo.ImageId is not { } imageId || !_photoStorage.TryGetMetadata(imageId, out _))
+                return;
+
+            component.PrintingQueue.Enqueue(FaxPrintout.Photograph(
+                imageId,
+                MetaData(sendEntity.Value).EntityName,
+                true));
+            component.SendTimeoutRemaining += component.SendTimeout;
+            UpdateUserInterface(uid, component);
+
+            _adminLogger.Add(LogType.Action,
+                LogImpact.Low,
+                $"{ToPrettyString(args.Actor):actor} added photograph copy job to " +
+                $"\"{component.FaxName}\" {ToPrettyString(uid):tool} of {ToPrettyString(sendEntity.Value):subject}");
+            return;
+        }
+
         if (!TryComp(sendEntity, out MetaDataComponent? metadata) ||
             !TryComp<PaperComponent>(sendEntity, out var paper))
             return;
@@ -517,6 +713,33 @@ public sealed partial class FaxSystem : EntitySystem
 
         if (!component.KnownFaxes.TryGetValue(component.DestinationFaxAddress, out var faxName))
             return;
+
+        if (TryComp(sendEntity, out PhotoComponent? photo))
+        {
+            if (photo.ImageId is not { } imageId || !_photoStorage.TryGetMetadata(imageId, out _))
+                return;
+
+            var photoPayload = new NetworkPayload()
+            {
+                { DeviceNetworkConstants.Command, FaxConstants.FaxPrintCommand },
+                { FaxConstants.FaxPaperNameData, MetaData(sendEntity.Value).EntityName },
+                { FaxConstants.FaxPaperSenderFaxNameData, component.FaxName ?? Loc.GetString("fax-machine-popup-source-unknown") },
+                { FaxConstants.FaxPhotoImageIdData, imageId.ToString() },
+                { FaxConstants.FaxPhotoIsCopyData, true },
+            };
+
+            _deviceNetworkSystem.QueuePacket(uid, component.DestinationFaxAddress, photoPayload);
+            component.SendTimeoutRemaining += component.SendTimeout;
+            _audioSystem.PlayPvs(component.SendSound, uid);
+            UpdateUserInterface(uid, component);
+
+            _adminLogger.Add(LogType.Action,
+                LogImpact.Low,
+                $"{ToPrettyString(args.Actor):actor} sent photograph from \"{component.FaxName}\" " +
+                $"{ToPrettyString(uid):tool} to \"{faxName}\" ({component.DestinationFaxAddress}) " +
+                $"of {ToPrettyString(sendEntity.Value):subject}");
+            return;
+        }
 
         if (!TryComp(sendEntity, out MetaDataComponent? metadata) ||
            !TryComp<PaperComponent>(sendEntity, out var paper))
@@ -608,12 +831,29 @@ public sealed partial class FaxSystem : EntitySystem
         component.PrintingQueue.Enqueue(printout);
     }
 
-    private void SpawnPaperFromQueue(EntityUid uid, FaxMachineComponent? component = null)
+    internal void SpawnPrintoutFromQueue(EntityUid uid, FaxMachineComponent? component = null)
     {
         if (!Resolve(uid, ref component) || component.PrintingQueue.Count == 0)
             return;
 
         var printout = component.PrintingQueue.Dequeue();
+
+        if (printout.Kind == FaxPrintoutKind.Photograph)
+        {
+            if (printout.PhotoImageId is not { } imageId || !_photoStorage.TryGetMetadata(imageId, out _))
+                return;
+
+            var photograph = Spawn("Photograph", Transform(uid).Coordinates);
+            var photo = Comp<PhotoComponent>(photograph);
+            photo.ImageId = imageId;
+            photo.IsCopy = printout.PhotoIsCopy;
+            Dirty(photograph, photo);
+            _metaData.SetEntityName(photograph, printout.Name);
+            _adminLogger.Add(LogType.Action,
+                LogImpact.Low,
+                $"\"{component.FaxName}\" {ToPrettyString(uid):tool} printed {ToPrettyString(photograph):subject}");
+            return;
+        }
 
         var entityToSpawn = printout.PrototypeId.Length == 0 ? component.PrintPaperId.ToString() : printout.PrototypeId;
         var printed = Spawn(entityToSpawn, Transform(uid).Coordinates);
@@ -649,4 +889,10 @@ public sealed partial class FaxSystem : EntitySystem
         _chat.SendAdminAnnouncement(Loc.GetString("fax-machine-chat-notify", ("fax", faxName)));
         _audioSystem.PlayGlobal("/Audio/Machines/high_tech_confirm.ogg", Filter.Empty().AddPlayers(_adminManager.ActiveAdmins), false, AudioParams.Default.WithVolume(-8f));
     }
+
+    private sealed record PendingPhotoUpload(
+        EntityUid Fax,
+        EntityUid Actor,
+        NetUserId UserId,
+        string Name);
 }

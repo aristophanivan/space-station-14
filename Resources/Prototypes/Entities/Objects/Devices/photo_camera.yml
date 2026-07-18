@@ -1,0 +1,47 @@
+- type: entity
+  parent: BaseItem
+  id: PhotoCamera
+  name: instant camera
+  description: A compact camera that develops physical photographs from replaceable film cassettes.
+  components:
+  - type: Sprite
+    sprite: Objects/Devices/travel_camera.rsi
+    state: icon
+  - type: Item
+    size: Small
+  - type: PhotoCamera
+  - type: ItemSlots
+    slots:
+      photo-film:
+        name: photo-camera-film-slot-name
+        insertOnInteract: true
+        ejectOnInteract: false
+        whitelist:
+          components:
+          - PhotoFilm
+  - type: ContainerContainer
+    containers:
+      photo-film: !type:ContainerSlot
+  - type: ActivatableUI
+    key: enum.PhotoCameraUiKey.Key
+    inHandsOnly: true
+    requireActiveHand: true
+    singleUser: true
+    requiresComplex: false
+  - type: UserInterface
+    interfaces:
+      enum.PhotoCameraUiKey.Key:
+        type: PhotoCameraBoundUserInterface
+
+- type: entity
+  parent: BaseItem
+  id: PhotoFilm
+  name: instant film cassette
+  description: A light-tight cassette with ten undeveloped frames.
+  components:
+  - type: Sprite
+    sprite: Objects/Devices/photo_film.rsi
+    state: icon
+  - type: Item
+    size: Tiny
+  - type: PhotoFilm

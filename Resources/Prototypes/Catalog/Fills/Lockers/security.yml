@@ -169,6 +169,8 @@
     - id: HoloprojectorSecurity
     - id: BoxEvidenceMarkers
     - id: HandLabeler
+    - id: PhotoCamera
+    - id: PhotoFilm
     - id: PlushieLizardJobDetective
       prob: 0.02
 

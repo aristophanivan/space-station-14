@@ -11,6 +11,15 @@ fax-machine-dialog-field-name = Name
 
 fax-machine-ui-window = Fax Machine
 fax-machine-ui-file-button = Print File
+fax-machine-ui-image-button = Print Image
+fax-machine-ui-image-processing = Processing image…
+fax-machine-ui-image-result-queued = Photograph added to the print queue.
+fax-machine-ui-image-result-invalid = The selected file is not a valid PNG or JPEG image.
+fax-machine-ui-image-result-too-large = The selected image exceeds the upload limit.
+fax-machine-ui-image-result-busy = The image processor is busy. Try again shortly.
+fax-machine-ui-image-result-storage-full = The station photo archive is full.
+fax-machine-ui-image-result-disabled = Image uploads are disabled on this server.
+fax-machine-ui-image-result-limit = Your photograph upload limit has been reached.
 fax-machine-ui-paper-button-normal = Plain Paper
 fax-machine-ui-paper-button-office = Office Paper
 fax-machine-ui-copy-button = Copy

@@ -1,0 +1,69 @@
+<controls:FancyWindow
+    xmlns="https://spacestation14.io"
+    xmlns:controls="clr-namespace:Content.Client.UserInterface.Controls"
+    xmlns:photo="clr-namespace:Content.Client.Photography.UI"
+    xmlns:viewport="clr-namespace:Content.Client.Viewport"
+    MinSize="700 520"
+    Resizable="False">
+    <PanelContainer Name="CameraBody" Margin="8">
+        <BoxContainer Orientation="Vertical" Margin="16">
+            <BoxContainer Orientation="Horizontal" Margin="2 0 2 10">
+                <BoxContainer Orientation="Vertical" HorizontalExpand="True">
+                    <Label Text="{Loc 'photo-camera-ui-brand'}" StyleClasses="LabelHeading" />
+                    <Label Text="{Loc 'photo-camera-ui-heading'}" StyleClasses="LabelSubText" />
+                </BoxContainer>
+                <PanelContainer Name="FilmPanel" MinSize="174 42">
+                    <BoxContainer Orientation="Horizontal" Margin="10 6">
+                        <PanelContainer Name="StatusLed" MinSize="12 12" Margin="0 0 8 0" />
+                        <BoxContainer Orientation="Vertical">
+                            <Label Name="FilmLabel" />
+                            <Label Name="StatusLabel" StyleClasses="LabelSubText" />
+                        </BoxContainer>
+                    </BoxContainer>
+                </PanelContainer>
+            </BoxContainer>
+
+            <BoxContainer Orientation="Horizontal" VerticalExpand="True">
+                <PanelContainer Name="ViewfinderBezel" MinSize="450 420" HorizontalExpand="True" VerticalExpand="True">
+                    <Control Margin="14">
+                        <viewport:ScalingViewport
+                            Name="CameraView"
+                            HorizontalExpand="True"
+                            VerticalExpand="True"
+                            MouseFilter="Ignore"
+                            StretchMode="Nearest" />
+                    </Control>
+                </PanelContainer>
+
+                <PanelContainer Name="ControlDeck" MinWidth="200" Margin="12 0 0 0">
+                    <BoxContainer Orientation="Vertical" Margin="12 10">
+                        <Label Text="{Loc 'photo-camera-ui-optics'}" StyleClasses="LabelHeading" HorizontalAlignment="Center" />
+                        <BoxContainer Orientation="Vertical" HorizontalAlignment="Center" Margin="0 12 0 12">
+                            <Label Text="{Loc 'photo-camera-ui-pan'}" HorizontalAlignment="Center" />
+                            <Label Text="{Loc 'photo-camera-ui-pan-keys'}" StyleClasses="LabelHeading" HorizontalAlignment="Center" />
+                            <Label Name="PanValue" StyleClasses="LabelSubText" HorizontalAlignment="Center" />
+                        </BoxContainer>
+
+                        <BoxContainer Orientation="Vertical" HorizontalAlignment="Center">
+                            <Label Text="{Loc 'photo-camera-ui-zoom'}" HorizontalAlignment="Center" />
+                            <photo:PhotoCameraDial Name="ZoomDial" MinValue="1" MaxValue="5" Step="0.05" />
+                            <Label Name="ZoomValue" StyleClasses="LabelSubText" HorizontalAlignment="Center" />
+                        </BoxContainer>
+
+                        <Button
+                            Name="ResetButton"
+                            Text="{Loc 'photo-camera-ui-reset'}"
+                            StyleClasses="ButtonSquare"
+                            Margin="0 8 0 6" />
+                        <Button
+                            Name="ShutterButton"
+                            Text="{Loc 'photo-camera-ui-shutter'}"
+                            StyleClasses="ButtonColorRed"
+                            MinHeight="56"
+                            Disabled="True" />
+                    </BoxContainer>
+                </PanelContainer>
+            </BoxContainer>
+        </BoxContainer>
+    </PanelContainer>
+</controls:FancyWindow>

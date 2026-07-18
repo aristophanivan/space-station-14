@@ -31,4 +31,6 @@ public static class FaxConstants
     public const string FaxSyndicateData = "fax_data_i_am_syndicate";
     public const string FaxPaperLockedData = "fax_data_locked";
     public const string FaxPaperSenderFaxNameData = "fax_data_sender_fax_name";
+    public const string FaxPhotoImageIdData = "fax_data_photo_image_id";
+    public const string FaxPhotoIsCopyData = "fax_data_photo_is_copy";
 }

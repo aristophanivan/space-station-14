@@ -1,5 +1,6 @@
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Paper;
+using Content.Shared.Photography;
 using Robust.Shared.Audio;
 using Robust.Shared.GameStates;
 using Robust.Shared.Prototypes;
@@ -149,9 +150,18 @@ public sealed partial class FaxMachineComponent : Component
     public LocId SenderInfo = "fax-machine-sender-info";
 }
 
+public enum FaxPrintoutKind : byte
+{
+    Paper,
+    Photograph,
+}
+
 [DataDefinition]
 public sealed partial class FaxPrintout
 {
+    [DataField]
+    public FaxPrintoutKind Kind { get; private set; }
+
     [DataField(required: true)]
     public string Name { get; private set; } = default!;
 
@@ -176,12 +186,19 @@ public sealed partial class FaxPrintout
     [DataField]
     public string? SenderFaxName { get; private set; } = default!;
 
+    [DataField]
+    public PhotoImageId? PhotoImageId { get; private set; }
+
+    [DataField]
+    public bool PhotoIsCopy { get; private set; }
+
     private FaxPrintout()
     {
     }
 
     public FaxPrintout(string content, string name, string? label = null, string? prototypeId = null, string? stampState = null, List<StampDisplayInfo>? stampedBy = null, bool locked = false, string? senderFaxName = null)
     {
+        Kind = FaxPrintoutKind.Paper;
         Content = content;
         Name = name;
         Label = label;
@@ -190,5 +207,23 @@ public sealed partial class FaxPrintout
         StampedBy = stampedBy ?? new List<StampDisplayInfo>();
         Locked = locked;
         SenderFaxName = senderFaxName;
+    }
+
+    public static FaxPrintout Photograph(
+        PhotoImageId imageId,
+        string name,
+        bool isCopy,
+        string? senderFaxName = null)
+    {
+        return new FaxPrintout
+        {
+            Kind = FaxPrintoutKind.Photograph,
+            Content = string.Empty,
+            Name = name,
+            PrototypeId = "Photograph",
+            PhotoImageId = imageId,
+            PhotoIsCopy = isCopy,
+            SenderFaxName = senderFaxName,
+        };
     }
 }
