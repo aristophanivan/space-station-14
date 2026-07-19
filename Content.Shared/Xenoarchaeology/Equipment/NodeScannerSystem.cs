@@ -25,7 +25,7 @@ public sealed partial class NodeScannerSystem : EntitySystem
         SubscribeLocalEvent<NodeScannerComponent, BeforeRangedInteractEvent>(OnBeforeRangedInteract);
         SubscribeLocalEvent<NodeScannerComponent, GetVerbsEvent<UtilityVerb>>(AddScanVerb);
         SubscribeLocalEvent<NodeScannerConnectedComponent, ComponentInit>(OnConnectedInit);
-        SubscribeLocalEvent<NodeScannerConnectedComponent, ComponentHandleState>(OnConnectedHandleState);
+        SubscribeLocalEvent<NodeScannerConnectedComponent, AfterAutoHandleStateEvent>(OnConnectedHandleState);
         SubscribeLocalEvent<NodeScannerConnectedComponent, EntityTimerEvent>(OnLinkTimer);
     }
 
@@ -34,7 +34,7 @@ public sealed partial class NodeScannerSystem : EntitySystem
         Schedule(ent);
     }
 
-    private void OnConnectedHandleState(Entity<NodeScannerConnectedComponent> ent, ref ComponentHandleState args)
+    private void OnConnectedHandleState(Entity<NodeScannerConnectedComponent> ent, ref AfterAutoHandleStateEvent args)
     {
         Schedule(ent);
     }

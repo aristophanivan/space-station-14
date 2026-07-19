@@ -39,7 +39,6 @@ namespace Content.Server.Cargo.Systems
             SubscribeLocalEvent<CargoOrderConsoleComponent, ComponentInit>(OnInit);
             SubscribeLocalEvent<CargoOrderConsoleComponent, InteractUsingEvent>(OnInteractUsing);
             SubscribeLocalEvent<CargoOrderConsoleComponent, GotEmaggedEvent>(OnEmagged);
-            SubscribeLocalEvent<StationBankAccountComponent, MapInitEvent>(OnBankMapInit);
             SubscribeLocalEvent<StationBankAccountComponent, EntityTimerEvent>(OnIncomeTimer);
         }
 
@@ -127,8 +126,9 @@ namespace Content.Server.Cargo.Systems
             args.Handled = true;
         }
 
-        private void OnBankMapInit(Entity<StationBankAccountComponent> ent, ref MapInitEvent args)
+        protected override void OnMapInit(Entity<StationBankAccountComponent> ent, ref MapInitEvent args)
         {
+            base.OnMapInit(ent, ref args);
             _timers.SetTimerAt(ent, IncomeTimer, ent.Comp.NextIncomeTime);
         }
 

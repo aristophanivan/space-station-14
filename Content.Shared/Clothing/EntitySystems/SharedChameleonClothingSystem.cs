@@ -155,7 +155,7 @@ public abstract partial class SharedChameleonClothingSystem : EntitySystem
         });
     }
 
-    private void OnEmpPulse(EntityUid uid, ChameleonClothingComponent component, ref EmpPulseEvent args)
+    protected virtual void OnEmpPulse(EntityUid uid, ChameleonClothingComponent component, ref EmpPulseEvent args)
     {
         if (!component.AffectedByEmp)
             return;

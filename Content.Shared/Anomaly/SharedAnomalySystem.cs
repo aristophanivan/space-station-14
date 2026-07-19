@@ -62,7 +62,7 @@ public abstract partial class SharedAnomalySystem : EntitySystem
         SubscribeLocalEvent<AnomalySupercriticalComponent, EntityTimerEvent>(OnSupercriticalTimer);
     }
 
-    private void OnAnomalyMapInit(Entity<AnomalyComponent> ent, ref MapInitEvent args)
+    protected virtual void OnAnomalyMapInit(Entity<AnomalyComponent> ent, ref MapInitEvent args)
     {
         ScheduleAnomalyTimers(ent);
     }

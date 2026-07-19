@@ -18,6 +18,7 @@ public sealed partial class ResearchSystem
         var unusedId = EntityQuery<ResearchServerComponent>(true)
             .Max(s => s.Id) + 1;
         component.Id = unusedId;
+        _timers.SetTimerAt<ResearchServerComponent>((uid, component), UpdateTimer, component.NextUpdateTime);
         Dirty(uid, component);
     }
 

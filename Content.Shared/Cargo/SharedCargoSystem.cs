@@ -21,7 +21,7 @@ public abstract partial class SharedCargoSystem : EntitySystem
         SubscribeLocalEvent<HijackBeaconSuccessEvent>(OnHijackSuccess);
     }
 
-    private void OnMapInit(Entity<StationBankAccountComponent> ent, ref MapInitEvent args)
+    protected virtual void OnMapInit(Entity<StationBankAccountComponent> ent, ref MapInitEvent args)
     {
         ent.Comp.NextIncomeTime = Timing.CurTime + ent.Comp.IncomeDelay;
         Dirty(ent);

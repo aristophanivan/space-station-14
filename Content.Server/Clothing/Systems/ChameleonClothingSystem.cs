@@ -20,7 +20,6 @@ public sealed partial class ChameleonClothingSystem : SharedChameleonClothingSys
         base.Initialize();
         SubscribeLocalEvent<ChameleonClothingComponent, MapInitEvent>(OnMapInit);
         SubscribeLocalEvent<ChameleonClothingComponent, ChameleonPrototypeSelectedMessage>(OnSelected);
-        SubscribeLocalEvent<EmpDisabledComponent, ComponentStartup>(OnEmpStartup);
         SubscribeLocalEvent<ChameleonClothingComponent, EntityTimerEvent>(OnTimer);
     }
 
@@ -69,10 +68,12 @@ public sealed partial class ChameleonClothingSystem : SharedChameleonClothingSys
         Dirty(uid, component);
     }
 
-    private void OnEmpStartup(Entity<EmpDisabledComponent> ent, ref ComponentStartup args)
+    protected override void OnEmpPulse(EntityUid uid, ChameleonClothingComponent component, ref EmpPulseEvent args)
     {
-        if (TryComp<ChameleonClothingComponent>(ent, out var chameleon) && chameleon.EmpContinuous)
-            _timers.SetTimerAt<ChameleonClothingComponent>((ent.Owner, chameleon), EmpChangeTimer, Timing.CurTime);
+        base.OnEmpPulse(uid, component, ref args);
+
+        if (component.AffectedByEmp && component.EmpContinuous)
+            _timers.SetTimerAt<ChameleonClothingComponent>((uid, component), EmpChangeTimer, component.NextEmpChange);
     }
 
     private void OnTimer(Entity<ChameleonClothingComponent> ent, ref EntityTimerEvent args)

@@ -150,7 +150,7 @@ public abstract partial class SharedEmpSystem : EntitySystem
         _timers.SetTimerAt(ent, DisabledTimer, ent.Comp.DisabledUntil);
     }
 
-    private void OnDisabledTimer(Entity<EmpDisabledComponent> ent, ref EntityTimerEvent args)
+    protected virtual void OnDisabledTimer(Entity<EmpDisabledComponent> ent, ref EntityTimerEvent args)
     {
         if (args.Id == DisabledTimer)
             RemComp<EmpDisabledComponent>(ent);

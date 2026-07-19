@@ -16,7 +16,6 @@ public sealed partial class EmpSystem : SharedEmpSystem
         base.Initialize();
 
         SubscribeLocalEvent<EmpDisabledComponent, ComponentStartup>(OnStartup);
-        SubscribeLocalEvent<EmpDisabledComponent, EntityTimerEvent>(OnTimer);
     }
 
     private void OnStartup(Entity<EmpDisabledComponent> ent, ref ComponentStartup args)
@@ -26,8 +25,10 @@ public sealed partial class EmpSystem : SharedEmpSystem
         _timers.SetTimerAt(ent, EffectTimer, ent.Comp.TargetTime);
     }
 
-    private void OnTimer(Entity<EmpDisabledComponent> ent, ref EntityTimerEvent args)
+    protected override void OnDisabledTimer(Entity<EmpDisabledComponent> ent, ref EntityTimerEvent args)
     {
+        base.OnDisabledTimer(ent, ref args);
+
         if (args.Id != EffectTimer)
             return;
 

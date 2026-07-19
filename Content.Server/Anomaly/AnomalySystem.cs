@@ -50,7 +50,6 @@ public sealed partial class AnomalySystem : SharedAnomalySystem
     public override void Initialize()
     {
         base.Initialize();
-        SubscribeLocalEvent<AnomalyComponent, MapInitEvent>(OnMapInit);
         SubscribeLocalEvent<AnomalyComponent, ComponentShutdown>(OnShutdown);
         SubscribeLocalEvent<AnomalyComponent, StartCollideEvent>(OnStartCollide);
         SubscribeLocalEvent<AnomalyStabilityChangedEvent>(OnVesselAnomalyStabilityChanged);
@@ -60,7 +59,7 @@ public sealed partial class AnomalySystem : SharedAnomalySystem
         InitializeCommands();
     }
 
-    private void OnMapInit(Entity<AnomalyComponent> anomaly, ref MapInitEvent args)
+    protected override void OnAnomalyMapInit(Entity<AnomalyComponent> anomaly, ref MapInitEvent args)
     {
         anomaly.Comp.NextPulseTime = Timing.CurTime + GetPulseLength(anomaly.Comp) * 3; // longer the first time
         ChangeAnomalyStability(anomaly, Random.NextFloat(anomaly.Comp.InitialStabilityRange.Item1 , anomaly.Comp.InitialStabilityRange.Item2), anomaly.Comp);
@@ -69,7 +68,7 @@ public sealed partial class AnomalySystem : SharedAnomalySystem
         ShuffleParticlesEffect(anomaly);
         anomaly.Comp.Continuity = _random.NextFloat(anomaly.Comp.MinContituty, anomaly.Comp.MaxContituty);
         SetBehavior(anomaly, GetRandomBehavior());
-        ScheduleAnomalyTimers(anomaly);
+        base.OnAnomalyMapInit(anomaly, ref args);
     }
 
     public void ShuffleParticlesEffect(Entity<AnomalyComponent> anomaly)

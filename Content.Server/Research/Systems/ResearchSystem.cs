@@ -34,7 +34,6 @@ namespace Content.Server.Research.Systems
             InitializeServer();
 
             SubscribeLocalEvent<TechnologyDatabaseComponent, ResearchRegistrationChangedEvent>(OnDatabaseRegistrationChanged);
-            SubscribeLocalEvent<ResearchServerComponent, ComponentStartup>(OnResearchTimerStartup);
             SubscribeLocalEvent<ResearchServerComponent, EntityTimerEvent>(OnTimer);
         }
 
@@ -90,11 +89,6 @@ namespace Content.Server.Research.Systems
             var set = new HashSet<Entity<ResearchServerComponent>>();
             _lookup.GetGridEntities(grid, set);
             return set;
-        }
-
-        private void OnResearchTimerStartup(Entity<ResearchServerComponent> ent, ref ComponentStartup args)
-        {
-            _timers.SetTimerAt(ent, UpdateTimer, ent.Comp.NextUpdateTime);
         }
 
         private void OnTimer(Entity<ResearchServerComponent> ent, ref EntityTimerEvent args)
