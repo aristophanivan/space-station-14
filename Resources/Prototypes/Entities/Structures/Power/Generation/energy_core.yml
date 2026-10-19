@@ -10,13 +10,18 @@
     anchored: true
     noRot: false
   - type: Rotatable
+    increment: 90
+  - type: HeldSpeedModifier
+    walkModifier: 0.04
+    sprintModifier: 0.022222222
+    mirrorClothingModifier: false
   - type: Appearance
   - type: Fixtures
     fixtures:
       fix1:
         shape: !type:PhysShapeAabb
           bounds: "-0.45,-0.45,0.45,0.45"
-        density: 200
+        density: 370.37037
         mask:
         - FullTileMask
         layer:
@@ -44,9 +49,9 @@
     board: EnergyCoreMachineCircuitboard
   - type: Sprite
     sprite: Structures/Power/energy_core.rsi
+    noRot: true
     layers:
     - state: off
-      offset: 0, 0.375
       map: [enum.EnergyCoreVisuals.State]
     - state: off
       color: "#FFFFFF00"
